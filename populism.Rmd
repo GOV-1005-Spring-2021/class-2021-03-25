@@ -21,6 +21,70 @@ x <- trains %>%
   select(move_to_pop, treatment, age)
 ```
 
+What is the causal effect of the treatment on the probability of becoming more populist?
 
+
+
+```{r}
+fit_1 <- stan_glm(data = x,
+                  formula = move_to_pop ~ treatment,
+                  family = binomial,
+                  refresh = 0,
+                  seed = 65)
+```
+
+```{r}
+newobs <- tibble(treatment = c("Control", "Treated"))
+
+pe <- posterior_epred(fit_1, 
+                      newdata = newobs) %>% 
+  as_tibble() %>% 
+  mutate(ate = `2` - `1`)
+```
+
+```{r}
+pe %>% 
+  ggplot(aes(x = ate)) +
+    geom_histogram(aes(y = after_stat(count/sum(count))),
+                   bins = 100)  +
+    labs(title = "Posterior for the Causal Effect of the Treatment",
+         subtitle = "Treatment makes it about 20% likely",
+         x = "Increase in Probability of Becoming More Populist",
+         y = "Probability") +
+    scale_x_continuous(labels = scales::percent_format(accuracy = 1)) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+    theme_classic()
+```
+
+If we assign the treatment to 25 people, how many will become more populist?
+
+
+```{r}
+newobs <- tibble(treatment = c(rep("Treated", 25)))
+                 
+
+pp <- posterior_predict(fit_1, 
+                        newdata = newobs) %>% 
+  as_tibble() %>% 
+  mutate_all(as.numeric) %>% 
+  rowwise() %>% 
+  mutate(total = sum(c_across()))
+
+pp
+```
+
+```{r}
+pp %>% 
+  ggplot(aes(x = total)) +
+    geom_histogram(aes(y = after_stat(count/sum(count))),
+                   bins = 100)  +
+    labs(title = "Posterior for Number of People who Became More Populist",
+         subtitle = "Ten is the most likely number, but values from 4 to 15 are plausible",
+         x = "Number",
+         y = "Probability") +
+    scale_x_continuous(labels = scales::number_format(accuracy = 1)) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+    theme_classic()
+```
 
 
